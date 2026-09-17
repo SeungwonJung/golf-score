@@ -1,7 +1,7 @@
 // 오프라인 동작용 서비스워커.
 // 앱 파일을 고쳐서 배포할 때는 아래 CACHE 이름의 숫자를 반드시 올린다.
 
-const CACHE = 'golf-score-v1';
+const CACHE = 'golf-score-v2';
 
 const ASSETS = [
   './',

@@ -336,3 +336,34 @@ textarea {
   font-weight: 600;
   text-align: center;
 }
+
+/* --- 폴더블 대응 --- */
+/* 접은 화면(세로로 긴 커버 화면): 홀 정보는 위, 입력 버튼은 엄지가 닿는 아래쪽에 둔다.
+   펼친 화면(넓은 화면): 입력 화면 옆에 스코어카드를 같이 띄운다. */
+
+.play-main {
+  display: flex;
+  flex-direction: column;
+  min-height: calc(100dvh - 52px - env(safe-area-inset-top) - 32px);
+}
+.play-spacer { flex: 1 1 auto; min-height: 12px; }
+.play-side { display: none; }
+
+@media (min-width: 700px) {
+  #view:has(.play-wrap) { max-width: 1000px; }
+  .play-wrap {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 28px;
+    align-items: start;
+  }
+  .play-main { min-height: 0; }
+  .play-spacer, .card-link { display: none; }
+  .play-side { display: block; }
+  .play-side .card-title:first-child { margin-top: 0; }
+}
+
+/* 펼친 화면에서는 결과 화면의 두 스코어카드도 나란히 */
+@media (min-width: 700px) {
+  #view:has(.result-head) { max-width: 860px; }
+}

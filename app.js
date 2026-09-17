@@ -70,6 +70,29 @@ document.addEventListener('click', (e) => {
 
 const actions = {};
 
+// 안드로이드 크롬은 설치할 수 있게 되면 이 이벤트를 준다.
+// 기본 안내 배너를 막고 홈 화면에 직접 버튼을 띄운다.
+let deferredInstall = null;
+
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  deferredInstall = e;
+  if (current().name === 'home') render();
+});
+
+window.addEventListener('appinstalled', () => {
+  deferredInstall = null;
+  if (current().name === 'home') render();
+});
+
+actions.installApp = async () => {
+  if (!deferredInstall) return;
+  deferredInstall.prompt();
+  await deferredInstall.userChoice;
+  deferredInstall = null;
+  render();
+};
+
 // --- 도우미 ---
 
 function esc(s) {
@@ -135,6 +158,11 @@ screens.home = function () {
     ${rounds.length === 0
       ? '<div class="empty" style="padding:24px 0">아직 기록이 없습니다</div>'
       : '<div class="stack">' + rounds.map(roundListItem).join('') + '</div>'}
+
+    ${deferredInstall ? `
+      <button class="btn mt-lg" data-act="installApp" style="border-color:var(--green);color:var(--green)">
+        홈 화면에 설치하기
+      </button>` : ''}
 
     <div class="section-label">관리</div>
     <div class="stack">
@@ -488,6 +516,7 @@ screens.play = function (params) {
   const diff = runningDiff(round);
 
   let html = `
+    <div class="play-wrap"><div class="play-main">
     <div class="play-head">
       <span>${esc(holeCourseName(round, i))}</span>
       <span>${i + 1} / ${round.holes.length}</span>
@@ -508,7 +537,7 @@ screens.play = function (params) {
         ${[3, 4, 5].map((p) => `<button class="score-btn" data-act="setHolePar" data-p="${p}"><b>${p}</b></button>`).join('')}
       </div>
       <div class="hint">티박스 표지판을 보고 눌러주세요. 코스 설정에도 저장됩니다.</div>
-    `;
+    </div></div>`;
     return { title: round.clubName, html: html, after: keepAwake };
   }
 
@@ -516,6 +545,7 @@ screens.play = function (params) {
   const par = hole.par;
   const main = [par - 1, par, par + 1, par + 2];
   html += `
+    <div class="play-spacer"></div>
     <div class="field-label">타수</div>
     <div class="score-grid">
       ${main.map((s) => `
@@ -580,7 +610,13 @@ screens.play = function (params) {
         ? `<button class="nav-btn done" data-act="finishRound">라운드 종료</button>`
         : `<button class="nav-btn" data-act="nextHole">다음 ›</button>`}
     </div>
-    <button class="more-btn mt" data-act="openCard">스코어카드 보기</button>
+    <button class="more-btn mt card-link" data-act="openCard">스코어카드 보기</button>
+    </div>
+    <aside class="play-side">
+      ${cardTable(round, 0, 9, round.front.name)}
+      ${round.back ? cardTable(round, 9, 18, round.back.name) : ''}
+    </aside>
+    </div>
   `;
 
   return { title: round.clubName, html: html, after: keepAwake };
@@ -804,7 +840,10 @@ actions.jumpHole = (d) => {
   if (!round || round.finished) return;
   setCurrentHole(roundId, Number(d.i));
   resetHoleUI();
-  back();
+  clearTimeout(advanceTimer);
+  // 펼친 화면에서는 스코어카드가 입력 화면 옆에 붙어 있으므로 되돌아갈 곳이 없다
+  if (current().name === 'play') render();
+  else back();
 };
 
 // --- 라운드 결과 ---
