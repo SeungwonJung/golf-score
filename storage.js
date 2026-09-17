@@ -155,7 +155,7 @@ function makeHoles(pars) {
     strokes: null,     // 타수
     putts: null,       // 퍼트 수
     tee: null,         // 'L' | 'F' | 'R' | null (선택 입력)
-    penalty: 0,        // 벌타 수 (선택 입력)
+    penalty: null,     // 'ob' | 'hazard' | 'unplayable' | null (선택 입력)
   }));
 }
 

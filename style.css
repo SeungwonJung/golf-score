@@ -405,3 +405,61 @@ textarea {
   font-family: inherit;
   cursor: pointer;
 }
+
+/* --- 글자 키우기 (0.6.0) --- */
+
+/* 홀 번호 옆 파 표시 */
+.hole-par { font-size: 24px; font-weight: 700; color: var(--ink); margin-left: 12px; }
+
+/* 스코어카드 전반 확대 */
+.scorecard { font-size: 17px; }
+.scorecard th, .scorecard td { padding: 10px 0; }
+.scorecard th:first-child { width: 48px; font-size: 14px; }
+.scorecard .hd th { font-size: 16px; }
+.scorecard .strokes td { font-size: 23px; font-weight: 800; }
+.scorecard .sum { font-size: 19px; }
+
+.card-title { font-size: 17px; }
+.card-sub { font-weight: 700; color: var(--ink-2); font-size: 15px; margin-left: 6px; }
+
+/* 벌타가 난 홀은 칸 위쪽에 굵은 띠를 둔다.
+   OB는 대개 더블 이상이라 칸이 빨간 배경인데, 빨간 띠는 거기서 묻힌다.
+   검정 띠라야 흰 칸과 빨간 칸 양쪽에서 보인다. */
+.scorecard td.has-pen { box-shadow: inset 0 6px 0 0 #000; }
+.scorecard td.has-pen.double { box-shadow: inset 0 6px 0 0 #000; }
+
+.pen-line {
+  margin-top: 8px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--red-soft);
+  color: var(--red);
+  font-size: 16px;
+  font-weight: 700;
+  text-align: center;
+}
+
+/* 펼친 화면은 자리가 넉넉하니 더 크게 */
+@media (min-width: 700px) {
+  .play-side .scorecard { font-size: 19px; }
+  .play-side .scorecard th, .play-side .scorecard td { padding: 13px 0; }
+  .play-side .scorecard .strokes td { font-size: 27px; }
+  .play-side .scorecard .hd th { font-size: 17px; }
+  .play-side .scorecard .sum { font-size: 21px; }
+  .play-side .card-title { font-size: 19px; }
+}
+
+/* 벌타 종류 버튼 */
+.score-btn.sm span { font-size: 14px; font-weight: 700; }
+
+/* 접어 둔 상태에서도 보이는 벌타 배지 */
+.pen-badge {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 4px 11px;
+  border-radius: 7px;
+  background: var(--red);
+  color: #fff;
+  font-size: 15px;
+  font-weight: 800;
+}

@@ -2,7 +2,7 @@
 // 화면은 문자열로 HTML을 만들고, 클릭은 data-act 속성으로 한 곳에서 받는다.
 
 // 앱 버전. 고칠 때마다 올리고, sw.js 의 CACHE 이름도 같은 값으로 맞춘다.
-const APP_VERSION = '0.5.0';
+const APP_VERSION = '0.6.0';
 
 const view = document.getElementById('view');
 const topTitle = document.getElementById('title');
@@ -565,6 +565,25 @@ let morePutts = false;
 let showOptional = false;
 let advanceTimer = null;
 
+// 타수를 파 기준 상대값으로 (-1, 0, 1, 2)
+function rel(strokes, par) {
+  if (strokes == null) return null;
+  if (!par) return String(strokes);
+  return String(strokes - par);
+}
+
+// 벌타는 개수가 아니라 종류를 남긴다. OB인지 해저드인지를 알아야 진단이 된다.
+const PENALTIES = [['ob', 'OB'], ['hazard', '해저드'], ['unplayable', '언플레이어블']];
+
+function penOf(hole) {
+  return typeof hole.penalty === 'string' ? hole.penalty : null;
+}
+
+function penLabel(key) {
+  const found = PENALTIES.find((p) => p[0] === key);
+  return found ? found[1] : '';
+}
+
 function scoreName(strokes, par) {
   if (!par) return String(strokes);
   const d = strokes - par;
@@ -636,14 +655,14 @@ screens.play = function (params) {
     <div class="score-grid">
       ${main.map((s) => `
         <button class="score-btn${hole.strokes === s ? ' selected' : ''}" data-act="setStrokes" data-s="${s}">
-          <b>${s}</b><span>${scoreName(s, par)}</span>
+          <b>${rel(s, par)}</b><span>${scoreName(s, par)}</span>
         </button>`).join('')}
     </div>
     <button class="more-btn" data-act="toggleMoreStrokes">${moreStrokes ? '접기' : '그 외 타수'}</button>
     ${moreStrokes ? `<div class="score-grid wrap">
       ${otherStrokes(par).map((s) => `
         <button class="score-btn sm${hole.strokes === s ? ' selected' : ''}" data-act="setStrokes" data-s="${s}">
-          <b>${s}</b><span>${scoreName(s, par)}</span>
+          <b>${rel(s, par)}</b><span>${scoreName(s, par)}</span>
         </button>`).join('')}
     </div>` : ''}
   `;
@@ -668,10 +687,13 @@ screens.play = function (params) {
   `;
 
   // 선택 입력 (평소엔 접혀 있다)
-  const optionalMark = (hole.tee ? '●' : '') + (hole.penalty ? '▲' : '');
+  const pen = penOf(hole);
+  // 접어 둔 상태에서도 OB 여부는 한눈에 보여야 한다
+  const optionalMark = (hole.tee ? '<span class="mark">●</span>' : '')
+    + (pen ? `<span class="pen-badge">${penLabel(pen)}</span>` : '');
   html += `
     <button class="more-btn" data-act="toggleOptional">
-      ${showOptional ? '접기' : '티샷 · 벌타 기록'} ${optionalMark ? '<span class="mark">' + optionalMark + '</span>' : ''}
+      ${showOptional ? '접기' : '티샷 · 벌타 기록'} ${optionalMark}
     </button>
     ${showOptional ? `
       <div class="field-label">티샷</div>
@@ -681,8 +703,9 @@ screens.play = function (params) {
       </div>
       <div class="field-label">벌타</div>
       <div class="score-grid">
-        ${[0, 1, 2].map((v) => `
-          <button class="score-btn sm${(hole.penalty || 0) === v ? ' selected' : ''}" data-act="setPenalty" data-v="${v}"><b>${v}</b></button>`).join('')}
+        <button class="score-btn sm${!pen ? ' selected' : ''}" data-act="setPenalty" data-v=""><span>없음</span></button>
+        ${PENALTIES.map(([key, label]) => `
+          <button class="score-btn sm pen-${key}${pen === key ? ' selected' : ''}" data-act="setPenalty" data-v="${key}"><span>${label}</span></button>`).join('')}
       </div>
     ` : ''}
   `;
@@ -797,7 +820,7 @@ actions.setStrokes = (d) => {
 
 actions.setPutts = (d) => setHoleValue({ putts: Number(d.p) });
 actions.setTee = (d) => setHoleValue({ tee: d.v });
-actions.setPenalty = (d) => setHoleValue({ penalty: Number(d.v) });
+actions.setPenalty = (d) => setHoleValue({ penalty: d.v || null });
 
 actions.toggleMoreStrokes = () => { moreStrokes = !moreStrokes; render(); };
 actions.toggleMorePutts = () => { morePutts = !morePutts; render(); };
@@ -808,7 +831,7 @@ actions.clearHole = () => {
   const { roundId } = current().params;
   const round = getRound(roundId);
   const i = round.currentHole;
-  Object.assign(round.holes[i], { strokes: null, putts: null, tee: null, penalty: 0 });
+  Object.assign(round.holes[i], { strokes: null, putts: null, tee: null, penalty: null });
   saveRound(round);
   render();
 };
@@ -879,8 +902,16 @@ function cardTable(round, from, to, label) {
   const t = sideTotals(round, from, to);
 
   const cell = (v) => (v == null ? '·' : v);
+  const diff = t.par && t.played ? t.strokes - t.par : null;
+  const sub = t.played ? `<span class="card-sub">${t.strokes}타${diff == null ? '' : ' ' + toPar(diff)}</span>` : '';
+
+  // 벌타가 난 홀은 따로 한 줄로 적는다. 칸 안의 작은 표시는 눈에 잘 안 들어온다.
+  const pens = holes
+    .filter((i) => penOf(round.holes[i]))
+    .map((i) => `${i + 1}번 ${penLabel(penOf(round.holes[i]))}`);
+
   return `
-    <div class="card-title">${esc(label)}</div>
+    <div class="card-title">${esc(label)} ${sub}</div>
     <table class="scorecard">
       <tr class="hd">
         <th>홀</th>${holes.map((i) => `<th>${i + 1}</th>`).join('')}<th>계</th>
@@ -891,14 +922,18 @@ function cardTable(round, from, to, label) {
       <tr class="strokes">
         <th>타수</th>${holes.map((i) => {
           const h = round.holes[i];
-          const cls = h.strokes != null && h.par ? scoreClass(h.strokes - h.par) : '';
-          return `<td class="${cls}" data-act="jumpHole" data-i="${i}">${cell(h.strokes)}</td>`;
+          const cls = [
+            h.strokes != null && h.par ? scoreClass(h.strokes - h.par) : '',
+            penOf(h) ? 'has-pen' : '',
+          ].filter(Boolean).join(' ');
+          return `<td class="${cls}" data-act="jumpHole" data-i="${i}">${cell(rel(h.strokes, h.par))}</td>`;
         }).join('')}<td class="sum">${t.strokes || '·'}</td>
       </tr>
       <tr>
         <th>퍼트</th>${holes.map((i) => `<td>${cell(round.holes[i].putts)}</td>`).join('')}<td class="sum">${t.putts || '·'}</td>
       </tr>
     </table>
+    ${pens.length ? `<div class="pen-line">${pens.join('   ')}</div>` : ''}
   `;
 }
 
