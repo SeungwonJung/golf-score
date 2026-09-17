@@ -15,21 +15,29 @@ function current() {
 
 function go(name, params) {
   stack.push({ name: name, params: params || {} });
-  render();
+  renderTop();
 }
 
 // 뒤로 가되, 특정 화면까지 되돌아간다 (라운드 저장 후 홈으로 등 )
 function goRoot(name, params) {
   stack = [{ name: name, params: params || {} }];
-  render();
+  renderTop();
 }
 
 function back() {
   if (stack.length > 1) stack.pop();
-  render();
+  renderTop();
 }
 
-function render() {
+// 다른 화면으로 넘어갈 때만 맨 위로 올린다
+function renderTop() {
+  render(true);
+}
+
+// 같은 화면을 다시 그릴 때는 보던 위치를 그대로 둔다.
+// 코스를 고르거나 파를 누를 때마다 화면이 위로 튀면 안 된다.
+function render(toTop) {
+  const keepY = window.scrollY;
   const { name, params } = current();
   const screen = screens[name];
   if (!screen) {
@@ -50,7 +58,7 @@ function render() {
     delete actionBtn.dataset.act;
   }
 
-  window.scrollTo(0, 0);
+  window.scrollTo(0, toTop ? 0 : keepY);
   if (out.after) out.after();
 }
 
@@ -683,7 +691,7 @@ function maybeAdvance(before, after, round) {
     if (!fresh || fresh.currentHole !== target) return;
     setCurrentHole(fresh.id, target + 1);
     resetHoleUI();
-    render();
+    renderTop();
   }, 350);
 }
 
@@ -733,7 +741,7 @@ actions.prevHole = () => {
   const round = getRound(roundId);
   setCurrentHole(roundId, round.currentHole - 1);
   resetHoleUI();
-  render();
+  renderTop();
 };
 
 actions.nextHole = () => {
@@ -742,7 +750,7 @@ actions.nextHole = () => {
   const round = getRound(roundId);
   setCurrentHole(roundId, round.currentHole + 1);
   resetHoleUI();
-  render();
+  renderTop();
 };
 
 actions.finishRound = () => {
@@ -842,7 +850,7 @@ actions.jumpHole = (d) => {
   resetHoleUI();
   clearTimeout(advanceTimer);
   // 펼친 화면에서는 스코어카드가 입력 화면 옆에 붙어 있으므로 되돌아갈 곳이 없다
-  if (current().name === 'play') render();
+  if (current().name === 'play') renderTop();
   else back();
 };
 
