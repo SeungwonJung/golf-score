@@ -1,7 +1,7 @@
 // 오프라인 동작용 서비스워커.
 // app.js 의 APP_VERSION 과 아래 VERSION 을 항상 같은 값으로 맞춘다.
 
-const VERSION = '0.6.0';
+const VERSION = '0.7.0';
 const CACHE = 'golf-score-v' + VERSION;
 
 // 신호가 약한 곳에서 이만큼 기다렸다가 저장된 버전으로 넘어간다

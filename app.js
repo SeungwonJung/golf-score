@@ -2,7 +2,7 @@
 // 화면은 문자열로 HTML을 만들고, 클릭은 data-act 속성으로 한 곳에서 받는다.
 
 // 앱 버전. 고칠 때마다 올리고, sw.js 의 CACHE 이름도 같은 값으로 맞춘다.
-const APP_VERSION = '0.6.0';
+const APP_VERSION = '0.7.0';
 
 const view = document.getElementById('view');
 const topTitle = document.getElementById('title');
@@ -145,16 +145,17 @@ screens.home = function () {
   if (active) {
     const done = active.holes.filter((h) => h.strokes != null).length;
     html += `
-      <button class="btn btn-primary btn-lg" data-act="resume" data-id="${active.id}">
-        진행 중인 라운드 이어하기
-      </button>
-      <div class="card mt" style="border-color:var(--green);background:var(--green-soft)">
-        <strong>${esc(active.clubName)}</strong>
-        <div style="color:var(--ink-2);font-size:15px;margin-top:4px">
+      <div class="card" style="border-color:var(--green);background:var(--green-soft)">
+        <strong style="font-size:19px">${esc(active.clubName)}</strong>
+        <div style="color:var(--ink-2);font-size:16px;margin-top:6px">
           ${esc(active.date)} · ${done}/${active.holes.length}홀 입력됨
         </div>
       </div>
-      <button class="btn mt" data-act="newRound">새 라운드 시작</button>
+      <button class="btn btn-primary btn-lg mt" data-act="resume" data-id="${active.id}">이어하기</button>
+      <div class="row mt">
+        <button class="btn" data-act="newRound">새 라운드</button>
+        <button class="btn btn-danger" data-act="deleteRound" data-id="${active.id}">삭제</button>
+      </div>
     `;
   } else if (clubs.length === 0) {
     html += `
@@ -169,10 +170,13 @@ screens.home = function () {
   }
 
   html += `
-    <div class="section-label">최근 라운드</div>
+    <div class="section-head">
+      <span class="section-label" style="margin:0">최근 라운드</span>
+      ${rounds.length ? `<button class="link-btn" data-act="toggleEditRounds">${editingRounds ? '완료' : '편집'}</button>` : ''}
+    </div>
     ${rounds.length === 0
       ? '<div class="empty" style="padding:24px 0">아직 기록이 없습니다</div>'
-      : '<div class="stack">' + rounds.map(roundListItem).join('') + '</div>'}
+      : '<div class="stack">' + rounds.map((r) => roundListItem(r, editingRounds)).join('') + '</div>'}
 
     ${deferredInstall ? `
       <button class="btn mt-lg" data-act="installApp" style="border-color:var(--green);color:var(--green)">
@@ -199,21 +203,30 @@ screens.home = function () {
   return { title: '골프 스코어', html: html };
 };
 
-function roundListItem(r) {
+function roundListItem(r, editing) {
   const total = r.holes.reduce((a, h) => a + (h.strokes || 0), 0);
   const par = parSum(r.holes.map((h) => h.par));
   const played = r.holes.filter((h) => h.strokes != null).length;
   const diff = played === r.holes.length && par ? ` (${toPar(total - par)})` : '';
-  return `
-    <button class="list-item" data-act="openSummary" data-id="${r.id}">
-      <span class="grow">${esc(r.clubName)}
-        <span class="sub">${esc(r.date)} · ${esc(r.front.name)}${r.back ? ' → ' + esc(r.back.name) : ''}</span>
-      </span>
-      <strong style="font-size:22px">${total}</strong>
-      <span style="color:var(--ink-2);font-size:14px">${diff}</span>
-    </button>
-  `;
+  const info = `
+    <span class="grow">${esc(r.clubName)}
+      <span class="sub">${esc(r.date)} · ${esc(r.front.name)}${r.back ? ' → ' + esc(r.back.name) : ''}</span>
+    </span>
+    <strong style="font-size:22px">${total}</strong>
+    <span style="color:var(--ink-2);font-size:14px">${diff}</span>`;
+
+  if (editing) {
+    return `<div class="list-item">
+      ${info}
+      <button class="btn btn-danger btn-inline btn-sm" data-act="deleteRound" data-id="${r.id}">삭제</button>
+    </div>`;
+  }
+  return `<button class="list-item" data-act="openSummary" data-id="${r.id}">${info}</button>`;
 }
+
+let editingRounds = false;
+
+actions.toggleEditRounds = () => { editingRounds = !editingRounds; render(); };
 
 // 저장된 파일을 전부 버리고 새로 받는다. 라운드 기록은 건드리지 않는다.
 actions.checkUpdate = async (d, btn) => {
@@ -1015,8 +1028,13 @@ actions.editRound = (d) => {
 actions.goHome = () => goRoot('home');
 
 actions.deleteRound = (d) => {
-  if (!confirm('이 라운드 기록을 삭제합니다. 되돌릴 수 없습니다.')) return;
+  const r = getRound(d.id);
+  if (!r) return;
+  const done = r.holes.filter((h) => h.strokes != null).length;
+  const label = r.finished ? '' : '진행 중인 라운드입니다.\n';
+  if (!confirm(`${label}${r.clubName} · ${r.date}\n${done}홀 기록을 삭제합니다. 되돌릴 수 없습니다.`)) return;
   deleteRound(d.id);
+  editingRounds = false;
   goRoot('home');
 };
 

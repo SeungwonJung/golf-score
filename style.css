@@ -463,3 +463,24 @@ textarea {
   font-size: 15px;
   font-weight: 800;
 }
+
+/* 섹션 제목 옆의 편집 버튼 */
+.section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: 24px 0 8px;
+}
+.link-btn {
+  border: none;
+  background: none;
+  color: var(--green);
+  font-size: 16px;
+  font-weight: 700;
+  font-family: inherit;
+  padding: 6px 4px;
+  cursor: pointer;
+}
+
+/* 삭제 버튼이 붙으면 좁아지므로 코스 이름은 줄바꿈 대신 잘라낸다 */
+.list-item .sub { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
