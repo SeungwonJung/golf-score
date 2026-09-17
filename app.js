@@ -2,7 +2,7 @@
 // 화면은 문자열로 HTML을 만들고, 클릭은 data-act 속성으로 한 곳에서 받는다.
 
 // 앱 버전. 고칠 때마다 올리고, sw.js 의 CACHE 이름도 같은 값으로 맞춘다.
-const APP_VERSION = '0.7.0';
+const APP_VERSION = '0.8.0';
 
 const view = document.getElementById('view');
 const topTitle = document.getElementById('title');
@@ -681,7 +681,8 @@ screens.play = function (params) {
   `;
 
   // 퍼트
-  const maxPutts = hole.strokes != null ? hole.strokes : 9;
+  // 퍼트는 타수보다 최소 1 작아야 한다. 그린에 올리는 데 최소 1타가 들기 때문.
+  const maxPutts = hole.strokes != null ? hole.strokes - 1 : 9;
   html += `
     <div class="field-label">퍼트</div>
     <div class="score-grid">
@@ -986,37 +987,140 @@ screens.summary = function (params) {
   const round = getRound(params.roundId);
   if (!round) return { title: '라운드', html: '<div class="empty">삭제된 라운드입니다</div>' };
 
-  const all = sideTotals(round, 0, round.holes.length);
-  const out = sideTotals(round, 0, 9);
-  const inn = round.back ? sideTotals(round, 9, 18) : null;
-  const diff = all.par ? all.strokes - all.par : null;
+  const st = roundStats(round);
+  const out = sideStats(round, 0, 9);
+  const inn = round.back ? sideStats(round, 9, 18) : null;
+
+  const metric = (label, value, sub) => `
+    <div class="metric">
+      <div class="metric-label">${label}</div>
+      <div class="metric-value">${value}<span class="metric-sub">${sub || ''}</span></div>
+    </div>`;
+
+  const lossRows = [
+    ['그린 미스', st.loss.그린미스, st.lossHoles.그린미스, 'l-green'],
+    ['벌타', st.loss.벌타, st.lossHoles.벌타, 'l-pen'],
+    ['퍼팅(3퍼트)', st.loss.퍼팅, st.lossHoles.퍼팅, 'l-putt'],
+    ['원인불명', st.loss.원인불명, st.lossHoles.원인불명, 'l-unknown'],
+  ].filter((r) => r[1] > 0);
+  const maxLoss = Math.max(1, ...lossRows.map((r) => r[1]));
 
   const html = `
     <div class="result-head">
-      <div class="result-score">${all.strokes}</div>
-      <div class="result-diff ${diff > 0 ? 'over' : diff < 0 ? 'under' : ''}">${diff == null ? '' : toPar(diff)}</div>
+      <div class="result-score">${st.strokes}</div>
+      <div class="result-diff ${st.over > 0 ? 'over' : st.over < 0 ? 'under' : ''}">${st.par ? toPar(st.over) : ''}</div>
     </div>
     <div class="result-sub">
       ${esc(round.clubName)} · ${esc(round.date)}<br>
       ${esc(round.front.name)} ${out.strokes}${inn ? ' → ' + esc(round.back.name) + ' ' + inn.strokes : ''}
-      ${all.putts ? ' · 퍼트 ' + all.putts : ''}
+      · 퍼트 ${st.putts}
     </div>
 
-    ${all.played < round.holes.length
-      ? `<div class="warn">${round.holes.length - all.played}개 홀이 비어 있습니다</div>` : ''}
+    ${st.played < round.holes.length
+      ? `<div class="warn">${round.holes.length - st.played}개 홀이 비어 있습니다</div>` : ''}
 
-    <div class="mt">
+    <div class="section-label">잃은 타수</div>
+    <div class="loss-list">
+      ${lossRows.map(([name, n, holes, cls]) => `
+        <div class="loss-row">
+          <div class="loss-top">
+            <span class="loss-name">${name}</span>
+            <span class="loss-num">${n}타</span>
+          </div>
+          <div class="loss-bar"><i class="${cls}" style="width:${n / maxLoss * 100}%"></i></div>
+          <div class="loss-holes">${holes.join('·')}번</div>
+        </div>`).join('')}
+      ${st.loss.만회 > 0 ? `
+        <div class="loss-row">
+          <div class="loss-top">
+            <span class="loss-name">버디로 만회</span>
+            <span class="loss-num under">-${st.loss.만회}타</span>
+          </div>
+          <div class="loss-holes">${st.lossHoles.만회.join('·')}번</div>
+        </div>` : ''}
+    </div>
+
+    ${st.unknownRatio > 0.15 ? `
+      <div class="warn">원인불명 ${st.loss.원인불명}타 (${Math.round(st.unknownRatio * 100)}%)<br>
+        <span style="font-weight:400;font-size:14px">벌타를 기록하면 좁혀집니다</span></div>` : ''}
+
+    <div class="section-label">지표</div>
+    <div class="metric-grid">
+      ${metric('그린 적중', st.gir, `/${st.played}`)}
+      ${metric('스크램블링', st.scrChance ? st.scrOk : '—', st.scrChance ? `/${st.scrChance}` : '')}
+      ${metric('GIR 시 퍼트', st.girPuttAvg != null ? st.girPuttAvg.toFixed(2) : '—', '')}
+      ${metric('3퍼트', st.threeAll, '개')}
+    </div>
+
+    ${st.penHoles.length ? `<div class="pen-line">${st.penHoles.map((p) => p.hole + '번 ' + p.name).join('   ')}</div>` : ''}
+
+    <div class="mt-lg">
       ${cardTable(round, 0, 9, round.front.name)}
       ${round.back ? cardTable(round, 9, 18, round.back.name) : ''}
     </div>
 
     <div class="stack mt-lg">
+      <button class="btn btn-primary" data-act="goAnalyze" data-id="${round.id}">클로드로 분석하기</button>
       <button class="btn" data-act="editRound" data-id="${round.id}">기록 수정하기</button>
       <button class="btn" data-act="goHome">홈으로</button>
       <button class="btn btn-danger btn-sm" data-act="deleteRound" data-id="${round.id}">이 라운드 삭제</button>
     </div>
   `;
   return { title: '라운드 결과', html: html };
+};
+
+// --- 클로드 분석용 내보내기 ---
+
+let analyzeScope = 'one';
+
+screens.analyze = function (params) {
+  const all = getRounds().filter((r) => r.finished || r.id === params.roundId);
+  const here = all.filter((r) => r.id === params.roundId);
+  const pick = analyzeScope === 'one' ? here
+             : analyzeScope === 'five' ? all.slice(0, 5)
+             : all;
+  const text = analysisText(pick);
+
+  const tab = (key, label, n) => `
+    <button class="btn ${analyzeScope === key ? 'btn-primary' : ''}" data-act="setScope" data-k="${key}">
+      ${label}${n != null ? ` (${n})` : ''}
+    </button>`;
+
+  const html = `
+    <div class="hint" style="text-align:left">
+      아래를 복사해서 <strong>클로드 앱에 붙여넣으세요.</strong>
+      첫 줄이 분석 스킬을 불러오므로 다른 말은 적지 않아도 됩니다.
+    </div>
+
+    <div class="row mt">
+      ${tab('one', '이번 라운드')}
+      ${tab('five', '최근', Math.min(5, all.length))}
+      ${tab('all', '전체', all.length)}
+    </div>
+
+    <button class="btn btn-primary btn-lg mt" data-act="copyAnalysis">복사하기</button>
+
+    <textarea id="analysisBox" readonly class="mt">${esc(text)}</textarea>
+    <div class="hint">${text.length.toLocaleString()}자 · 라운드 ${pick.length}개</div>
+  `;
+  return { title: '클로드로 분석', html: html };
+};
+
+actions.goAnalyze = (d) => { analyzeScope = 'one'; go('analyze', { roundId: d.id }); };
+actions.setScope = (d) => { analyzeScope = d.k; render(); };
+
+actions.copyAnalysis = async (d, btn) => {
+  const box = document.getElementById('analysisBox');
+  try {
+    await navigator.clipboard.writeText(box.value);
+  } catch (e) {
+    box.removeAttribute('readonly');
+    box.select();
+    document.execCommand('copy');
+    box.setAttribute('readonly', '');
+  }
+  btn.textContent = '복사됨 — 클로드에 붙여넣으세요';
+  setTimeout(() => { btn.textContent = '복사하기'; }, 2500);
 };
 
 actions.editRound = (d) => {

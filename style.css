@@ -484,3 +484,29 @@ textarea {
 
 /* 삭제 버튼이 붙으면 좁아지므로 코스 이름은 줄바꿈 대신 잘라낸다 */
 .list-item .sub { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* --- 잃은 타수 --- */
+
+.loss-list { display: flex; flex-direction: column; gap: 14px; }
+.loss-row { }
+.loss-top { display: flex; align-items: baseline; justify-content: space-between; }
+.loss-name { font-size: 17px; font-weight: 700; }
+.loss-num { font-size: 22px; font-weight: 800; }
+.loss-num.under { color: var(--blue); }
+.loss-bar { height: 14px; background: var(--fill); border-radius: 7px; margin: 6px 0 4px; overflow: hidden; }
+.loss-bar i { display: block; height: 100%; border-radius: 7px; }
+.l-green   { background: #c0392b; }
+.l-pen     { background: #ef9f27; }
+.l-putt    { background: #1665b8; }
+.l-unknown { background: #888780; }
+.loss-holes { font-size: 14px; color: var(--ink-2); font-weight: 600; }
+
+/* --- 지표 --- */
+
+.metric-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.metric { background: var(--fill); border-radius: 12px; padding: 12px 14px; }
+.metric-label { font-size: 14px; font-weight: 700; color: var(--ink-2); }
+.metric-value { font-size: 28px; font-weight: 800; margin-top: 2px; }
+.metric-sub { font-size: 15px; font-weight: 600; color: var(--ink-2); margin-left: 2px; }
+
+@media (min-width: 700px) { .metric-grid { grid-template-columns: repeat(4, 1fr); } }
