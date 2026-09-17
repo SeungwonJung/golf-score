@@ -1,6 +1,9 @@
 // 화면 전환과 각 화면의 그리기를 담당한다.
 // 화면은 문자열로 HTML을 만들고, 클릭은 data-act 속성으로 한 곳에서 받는다.
 
+// 앱 버전. 고칠 때마다 올리고, sw.js 의 CACHE 이름도 같은 값으로 맞춘다.
+const APP_VERSION = '0.4.0';
+
 const view = document.getElementById('view');
 const topTitle = document.getElementById('title');
 const backBtn = document.getElementById('backBtn');
@@ -58,7 +61,11 @@ function render(toTop) {
     delete actionBtn.dataset.act;
   }
 
-  window.scrollTo(0, toTop ? 0 : keepY);
+  // innerHTML 교체 직후에는 아직 높이가 잡히지 않아 scrollTo가 0으로 잘린다.
+  // offsetHeight를 읽어 레이아웃을 강제로 계산시킨 뒤에 되돌린다.
+  const targetY = toTop ? 0 : keepY;
+  void view.offsetHeight;
+  window.scrollTo(0, targetY);
   if (out.after) out.after();
 }
 
@@ -183,6 +190,7 @@ screens.home = function () {
         <span class="chev">›</span>
       </button>
     </div>
+    <div class="version">버전 ${APP_VERSION}</div>
   `;
 
   return { title: '골프 스코어', html: html };
@@ -381,6 +389,9 @@ actions.deleteCourse = (d) => {
 
 let roundDraft = null;
 
+// 고른 항목은 한 줄로 접어서 화면을 짧게 유지한다.
+// 골프장 4곳 × 코스 4개면 전부 펼쳤을 때 화면 세 배 길이가 되어 버린다.
+
 screens.newRound = function () {
   const clubs = getClubs();
   if (clubs.length === 0) {
@@ -389,83 +400,133 @@ screens.newRound = function () {
       <button class="btn btn-primary" data-act="goClubs">골프장 등록하기</button>` };
   }
 
-  if (!roundDraft) roundDraft = { date: todayString(), clubId: null, frontId: null, backId: null };
+  if (!roundDraft) roundDraft = { date: todayString(), clubId: null, frontId: null, backId: null, editing: null };
+
   const club = roundDraft.clubId ? clubs.find((c) => c.id === roundDraft.clubId) : null;
+  const front = club ? club.courses.find((c) => c.id === roundDraft.frontId) : null;
+  const back = club ? club.courses.find((c) => c.id === roundDraft.backId) : null;
+  const open = openSection();
 
-  let html = `
-    <input type="date" id="roundDate" value="${roundDraft.date}">
+  let html = `<input type="date" id="roundDate" value="${roundDraft.date}">`;
 
-    <div class="section-label">골프장</div>
-    <div class="stack">
+  // 골프장
+  if (open === 'club') {
+    html += `<div class="section-label">골프장</div><div class="stack">
       ${clubs.map((c) => `
         <button class="list-item${roundDraft.clubId === c.id ? ' selected' : ''}" data-act="pickClub" data-id="${c.id}">
           <span class="grow">${esc(c.name)}</span>
         </button>`).join('')}
-    </div>
-  `;
+    </div>`;
+  } else if (club) {
+    html += chosenRow('골프장', club.name, 'club');
+  }
 
+  if (club && club.courses.length === 0) {
+    html += `<div class="empty">이 골프장에 등록된 코스가 없습니다.</div>
+      <button class="btn" data-act="openClub" data-id="${club.id}">코스 추가하기</button>`;
+    return { title: '라운드 시작', html: html };
+  }
+
+  // 전반
   if (club) {
-    if (club.courses.length === 0) {
-      html += `<div class="empty">이 골프장에 등록된 코스가 없습니다.</div>
-        <button class="btn" data-act="openClub" data-id="${club.id}">코스 추가하기</button>`;
-    } else {
-      html += `
-        <div class="section-label">전반 9홀</div>
-        <div class="stack">
-          ${club.courses.map((c) => `
-            <button class="list-item${roundDraft.frontId === c.id ? ' selected' : ''}" data-act="pickFront" data-id="${c.id}">
-              <span class="grow">${esc(c.name)}<span class="sub">${courseLabel(c)}</span></span>
-            </button>`).join('')}
-        </div>
-      `;
-      if (roundDraft.frontId) {
-        html += `
-          <div class="section-label">후반 9홀</div>
-          <div class="stack">
-            ${club.courses.map((c) => `
-              <button class="list-item${roundDraft.backId === c.id ? ' selected' : ''}" data-act="pickBack" data-id="${c.id}">
-                <span class="grow">${esc(c.name)}<span class="sub">${courseLabel(c)}</span></span>
-              </button>`).join('')}
-            <button class="list-item${roundDraft.backId === 'none' ? ' selected' : ''}" data-act="pickBack" data-id="none">
-              <span class="grow">후반 없이 9홀만</span>
-            </button>
-          </div>
-        `;
-      }
+    if (open === 'front') {
+      html += `<div class="section-label">전반 9홀</div><div class="stack">
+        ${club.courses.map((c) => `
+          <button class="list-item${roundDraft.frontId === c.id ? ' selected' : ''}" data-act="pickFront" data-id="${c.id}">
+            <span class="grow">${esc(c.name)}<span class="sub">${courseLabel(c)}</span></span>
+          </button>`).join('')}
+      </div>`;
+    } else if (front) {
+      html += chosenRow('전반', front.name, 'front');
     }
   }
 
+  // 후반
+  if (front) {
+    if (open === 'back') {
+      html += `<div class="section-label">후반 9홀</div><div class="stack">
+        ${club.courses.map((c) => `
+          <button class="list-item${roundDraft.backId === c.id ? ' selected' : ''}" data-act="pickBack" data-id="${c.id}">
+            <span class="grow">${esc(c.name)}<span class="sub">${courseLabel(c)}</span></span>
+          </button>`).join('')}
+        <button class="list-item${roundDraft.backId === 'none' ? ' selected' : ''}" data-act="pickBack" data-id="none">
+          <span class="grow">후반 없이 9홀만</span>
+        </button>
+      </div>`;
+    } else if (roundDraft.backId) {
+      html += chosenRow('후반', roundDraft.backId === 'none' ? '9홀만' : back.name, 'back');
+    }
+  }
+
+  // 시작 버튼은 항상 화면 아래에 붙어 있어서 찾으러 내려갈 필요가 없다
   const ready = roundDraft.frontId && roundDraft.backId;
-  html += `<div class="mt-lg"><button class="btn btn-primary btn-lg" data-act="startRound" ${ready ? '' : 'disabled'}>라운드 시작</button></div>`;
+  html += `<div class="sticky-bar">
+    <button class="btn btn-primary btn-lg" data-act="startRound" ${ready ? '' : 'disabled'}>
+      ${ready ? '라운드 시작' : nextPrompt(open)}
+    </button>
+  </div>`;
 
   return { title: '라운드 시작', html: html };
 };
+
+// 아직 안 고른 것 중 첫 번째를 펼친다. '변경'을 누르면 그 칸이 펼쳐진다.
+function openSection() {
+  if (roundDraft.editing) return roundDraft.editing;
+  if (!roundDraft.clubId) return 'club';
+  if (!roundDraft.frontId) return 'front';
+  if (!roundDraft.backId) return 'back';
+  return null;
+}
+
+function nextPrompt(open) {
+  if (open === 'club') return '골프장을 고르세요';
+  if (open === 'front') return '전반 코스를 고르세요';
+  return '후반 코스를 고르세요';
+}
+
+function chosenRow(label, name, section) {
+  return `
+    <button class="list-item chosen" data-act="editSection" data-s="${section}">
+      <span class="pick-label">${label}</span>
+      <span class="grow"><strong>${esc(name)}</strong></span>
+      <span class="change">변경</span>
+    </button>`;
+}
 
 function syncDraftDate() {
   const d = document.getElementById('roundDate');
   if (d && d.value) roundDraft.date = d.value;
 }
 
+actions.editSection = (d) => {
+  syncDraftDate();
+  roundDraft.editing = d.s;
+  render();
+};
+
 actions.pickClub = (d) => {
   syncDraftDate();
+  const changed = roundDraft.clubId !== d.id;
   roundDraft.clubId = d.id;
-  roundDraft.frontId = null;
-  roundDraft.backId = null;
+  if (changed) { roundDraft.frontId = null; roundDraft.backId = null; }
+  roundDraft.editing = null;
   render();
 };
 
 actions.pickFront = (d) => {
   syncDraftDate();
   roundDraft.frontId = d.id;
-  roundDraft.backId = null;
+  roundDraft.editing = null;
   render();
 };
 
 actions.pickBack = (d) => {
   syncDraftDate();
   roundDraft.backId = d.id;
+  roundDraft.editing = null;
   render();
 };
+
 
 actions.startRound = () => {
   syncDraftDate();
