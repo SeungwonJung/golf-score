@@ -105,6 +105,20 @@ git add -A && git commit -m "설명" && git push
 벌 4:OB 16:해저드
 ```
 
+## 분석 스킬은 claude.ai 에 있다
+
+`golf-round-analysis` 스킬은 이 저장소가 아니라 **claude.ai 계정**에 있다.
+맥의 `~/.claude/skills/` 가 아니므로 이 폴더에서 찾지 말 것.
+
+- 위치: `claude.ai/customize/skills` (맥 클로드 앱의 설정 → Customize → Skills 도 같은 곳)
+- 고치는 법: 스킬을 열고 **편집** 버튼. ZIP 을 다시 올릴 필요 없다
+- 켜져 있어야 할 것: 설정 → Capabilities → **Code execution and file creation**
+- 폰 클로드 앱에서도 같은 계정 설정이 적용된다. 라운드 직후 폰에서 쓰는 것이 주 용도다
+
+스킬 안에 **자가 검산 블록**이 있다. 분석 전에 정답을 아는 예제를 먼저 풀어
+코드가 맞는지 스스로 확인한다. `stats.js` 의 분해 알고리즘을 고치면
+이 검산 블록의 정답도 함께 고쳐야 한다.
+
 ## 함정
 
 - **배포할 때마다 버전을 올린다. 두 곳을 반드시 같은 값으로 맞춘다.**
