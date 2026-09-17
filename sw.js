@@ -1,7 +1,11 @@
 // 오프라인 동작용 서비스워커.
-// 앱 파일을 고쳐서 배포할 때는 아래 CACHE 이름의 숫자를 반드시 올린다.
+// app.js 의 APP_VERSION 과 아래 VERSION 을 항상 같은 값으로 맞춘다.
 
-const CACHE = 'golf-score-v0.4.0';
+const VERSION = '0.5.0';
+const CACHE = 'golf-score-v' + VERSION;
+
+// 신호가 약한 곳에서 이만큼 기다렸다가 저장된 버전으로 넘어간다
+const NETWORK_TIMEOUT = 2500;
 
 const ASSETS = [
   './',
@@ -16,7 +20,12 @@ const ASSETS = [
 ];
 
 self.addEventListener('install', (e) => {
-  e.waitUntil(caches.open(CACHE).then((c) => c.addAll(ASSETS)).then(() => self.skipWaiting()));
+  e.waitUntil(
+    caches.open(CACHE)
+      // cache: 'reload' 를 줘야 GitHub 이 붙인 10분짜리 캐시를 무시하고 진짜 새 파일을 받는다
+      .then((c) => Promise.all(ASSETS.map((u) => c.add(new Request(u, { cache: 'reload' })))))
+      .then(() => self.skipWaiting())
+  );
 });
 
 self.addEventListener('activate', (e) => {
@@ -27,24 +36,34 @@ self.addEventListener('activate', (e) => {
   );
 });
 
-// 캐시를 먼저 보여주고, 뒤에서 조용히 새 버전을 받아둔다.
-// 골프장에서는 즉시 뜨고, 다음에 열 때 최신으로 바뀐다.
+// 앱을 열 때마다 최신을 먼저 시도한다.
+// 신호가 없거나 느리면 저장된 버전으로 넘어가므로 골프장에서도 그대로 뜬다.
 self.addEventListener('fetch', (e) => {
   if (e.request.method !== 'GET') return;
-  const url = new URL(e.request.url);
-  if (url.origin !== location.origin) return;
-
-  e.respondWith(
-    caches.open(CACHE).then((cache) =>
-      cache.match(e.request).then((cached) => {
-        const network = fetch(e.request)
-          .then((res) => {
-            if (res && res.status === 200) cache.put(e.request, res.clone());
-            return res;
-          })
-          .catch(() => cached || cache.match('./index.html'));
-        return cached || network;
-      })
-    )
-  );
+  if (new URL(e.request.url).origin !== location.origin) return;
+  e.respondWith(networkFirst(e.request));
 });
+
+async function networkFirst(request) {
+  const cache = await caches.open(CACHE);
+  try {
+    const res = await withTimeout(fetch(request, { cache: 'no-store' }), NETWORK_TIMEOUT);
+    if (res && res.status === 200) cache.put(request, res.clone());
+    return res;
+  } catch (err) {
+    const cached = await cache.match(request);
+    if (cached) return cached;
+    if (request.mode === 'navigate') {
+      const shell = await cache.match('./index.html');
+      if (shell) return shell;
+    }
+    throw err;
+  }
+}
+
+function withTimeout(promise, ms) {
+  return Promise.race([
+    promise,
+    new Promise((_, reject) => setTimeout(() => reject(new Error('느린 연결')), ms)),
+  ]);
+}

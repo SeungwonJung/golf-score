@@ -392,3 +392,16 @@ textarea {
   font-size: 13px;
   color: var(--ink-2);
 }
+
+.version-btn {
+  margin-left: 10px;
+  padding: 6px 12px;
+  border: 2px solid var(--line);
+  border-radius: 8px;
+  background: var(--bg);
+  color: var(--ink-2);
+  font-size: 13px;
+  font-weight: 700;
+  font-family: inherit;
+  cursor: pointer;
+}

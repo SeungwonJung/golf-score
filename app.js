@@ -2,7 +2,7 @@
 // 화면은 문자열로 HTML을 만들고, 클릭은 data-act 속성으로 한 곳에서 받는다.
 
 // 앱 버전. 고칠 때마다 올리고, sw.js 의 CACHE 이름도 같은 값으로 맞춘다.
-const APP_VERSION = '0.4.0';
+const APP_VERSION = '0.5.0';
 
 const view = document.getElementById('view');
 const topTitle = document.getElementById('title');
@@ -190,7 +190,10 @@ screens.home = function () {
         <span class="chev">›</span>
       </button>
     </div>
-    <div class="version">버전 ${APP_VERSION}</div>
+    <div class="version">
+      버전 ${APP_VERSION}
+      <button class="version-btn" data-act="checkUpdate">업데이트 확인</button>
+    </div>
   `;
 
   return { title: '골프 스코어', html: html };
@@ -211,6 +214,20 @@ function roundListItem(r) {
     </button>
   `;
 }
+
+// 저장된 파일을 전부 버리고 새로 받는다. 라운드 기록은 건드리지 않는다.
+actions.checkUpdate = async (d, btn) => {
+  btn.textContent = '확인 중...';
+  try {
+    const keys = await caches.keys();
+    await Promise.all(keys.map((k) => caches.delete(k)));
+    const reg = await navigator.serviceWorker.getRegistration();
+    if (reg) await reg.update();
+  } catch (e) {
+    // 실패해도 어차피 아래에서 새로고침한다
+  }
+  location.reload();
+};
 
 actions.goClubs = () => go('clubs');
 actions.goSettings = () => go('settings');

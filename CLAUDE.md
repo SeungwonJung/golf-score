@@ -83,8 +83,15 @@ git add -A && git commit -m "설명" && git push
   `app.js` 의 `APP_VERSION` 과 `sw.js` 의 `CACHE = 'golf-score-v<같은 값>'`.
   안 올리면 폰에 옛 버전이 그대로 남는다. 홈 화면 맨 아래에 이 버전이 표시되므로
   사용자가 지금 무엇을 쓰고 있는지 바로 확인할 수 있다
-- 서비스워커는 캐시를 먼저 보여주므로 **새 버전은 두 번째로 열 때 적용된다.** 배포 직후
-  '안 바뀌었다'는 얘기가 나오면 먼저 홈 화면의 버전 숫자를 확인시킨다
+- **서비스워커는 네트워크 우선이다.** 열 때마다 최신을 먼저 받고, 2.5초 안에 응답이 없거나
+  신호가 없으면 저장된 버전으로 넘어간다. 그래서 새 버전은 **한 번만 열어도** 반영된다.
+  예전에는 캐시 우선이라 항상 한 박자 늦었고, GitHub 이 붙이는 `max-age=600` 때문에
+  새로 받는 요청마저 10분간 옛 파일을 돌려받아 업데이트가 멈춰 버렸다. 그래서 세 군데를 지킨다.
+  - `sw.js` 설치 시 `new Request(url, { cache: 'reload' })`
+  - `sw.js` 의 fetch 는 `fetch(req, { cache: 'no-store' })`
+  - `boot.js` 의 등록은 `register('sw.js', { updateViaCache: 'none' })`
+- 홈 화면의 **'업데이트 확인'** 버튼이 최후의 수단이다. 캐시를 전부 지우고 새로고침한다
+  (localStorage 는 건드리지 않으므로 라운드 기록은 남는다)
 - `boot.js` 는 `index.html` 에서 항상 마지막에 로드해야 한다. `render()` 가 화면 등록보다 먼저 돌면 안 된다
 - 새 화면을 추가할 때는 `screens` 와 `actions` 양쪽에 등록한다
 - `render()` 는 `innerHTML` 교체 직후 `view.offsetHeight` 를 읽어 레이아웃을 강제 계산시킨 뒤에
